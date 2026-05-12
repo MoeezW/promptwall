@@ -1,0 +1,39 @@
+# Default promptwall policy.
+#
+# This is the safe-by-default baseline: block on detected secrets,
+# block on high-confidence regex prompt injection, redact detected PII,
+# allow everything else. The ML injection detector is opt-in (it adds
+# ~700 MB of model weights and ~1-2 s to cold startup); flip
+# `injection_ml.enabled` to true to engage it.
+
+version: 1
+
+detectors:
+  injection_regex:
+    enabled: true
+    timeout_ms: 50
+  injection_ml:
+    enabled: false
+    timeout_ms: 50
+  pii:
+    enabled: true
+    timeout_ms: 100
+  secrets:
+    enabled: true
+    timeout_ms: 200
+
+rules:
+  - if: "secrets.matched"
+    action: block
+    reason: "Secret credential detected in prompt"
+
+  - if: "injection_regex.score >= 0.9"
+    action: block
+    reason: "High-confidence prompt injection (regex)"
+
+  - if: "pii.matched"
+    action: redact
+    apply_to: [EMAIL_ADDRESS, PHONE_NUMBER, CA_SIN, CREDIT_CARD, US_SSN, IP_ADDRESS, IBAN_CODE]
+
+default_action: allow
+degraded_action: block
