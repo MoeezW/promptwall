@@ -1,0 +1,98 @@
+[project]
+name = "promptwall"
+version = "0.1.0"
+description = "Production-grade LLM safety gateway with structured concurrent detector execution, reversible PII redaction, and reproducible benchmarks."
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Moeez Waqas", email = "moeezwaqas@outlook.com" }]
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.100",
+    "mypy>=1.10",
+    "ruff>=0.7",
+    "pre-commit>=3.7",
+    "alembic>=1.13",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/promptwall"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src"]
+force-exclude = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D203",   # incompatible with D211; we pick "no blank line before class docstring"
+    "D213",   # incompatible with D212; we pick "summary on first line"
+    "COM812", # conflicts with ruff format
+    "ISC001", # conflicts with ruff format
+    "CPY001", # we have LICENSE; no per-file copyright headers
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",    # asserts are the point
+    "PLR2004", # magic numbers are fine in test data
+    "D",       # docstrings not required in tests
+    "ANN",     # annotations not required in tests
+    "INP001",  # tests dir is not a package
+]
+"src/promptwall/cli.py" = ["T201"]    # print() allowed in CLI only
+"benchmarks/**" = ["T201", "INP001"]  # benchmark scripts can print
+"migrations/**" = [
+    "D",      # docstrings not enforced on migrations
+    "INP001", # versions/ isn't a package, that's by design
+    "ANN",    # annotations not enforced on migrations
+    "F401",   # sa / Sequence imports are present in the template even if unused
+    "E501",   # raw SQL strings in migrations can be long
+]
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_explicit = true
+disallow_any_unimported = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*", "benchmarks.*"]
+disallow_any_explicit = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "--strict-markers --strict-config -q"
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["src/promptwall"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.",
+]
