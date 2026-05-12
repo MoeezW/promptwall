@@ -57,12 +57,13 @@ force-exclude = true
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "D203",   # incompatible with D211; we pick "no blank line before class docstring"
-    "D213",   # incompatible with D212; we pick "summary on first line"
-    "D107",   # __init__ docstring is redundant with the class docstring
-    "COM812", # conflicts with ruff format
-    "ISC001", # conflicts with ruff format
-    "CPY001", # we have LICENSE; no per-file copyright headers
+    "D203",    # incompatible with D211; we pick "no blank line before class docstring"
+    "D213",    # incompatible with D212; we pick "summary on first line"
+    "D107",    # __init__ docstring is redundant with the class docstring
+    "COM812",  # conflicts with ruff format
+    "ISC001",  # conflicts with ruff format
+    "CPY001",  # we have LICENSE; no per-file copyright headers
+    "PLC0415", # we intentionally lazy-import heavy modules (ONNX, datasets) to skip cold-load cost
 ]
 
 [tool.ruff.lint.per-file-ignores]
