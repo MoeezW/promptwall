@@ -30,3 +30,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a Microsoft Presidio analyzer for PII with a custom Canadian
   Social Insurance Number recognizer (Luhn-validated). 98% coverage
   on the detector package.
+- ML prompt-injection detector: `protectai/deberta-v3-base-prompt-injection-v2`
+  via ONNX Runtime through `optimum`. Auto-downloads from HuggingFace
+  and exports to ONNX on first construction (~50 s cold); subsequent
+  loads reuse the HF cache (~1-2 s). Synchronous inference wrapped in
+  `asyncio.to_thread`; 5-prompt warmup in the constructor.
+  **Measured ~18 ms p99 on FP32**, well under the 25 ms budget — no
+  int8 quantization needed for v0.1. `torch` came in as a transitive
+  dep of `optimum 2.x`; runtime container will strip it (Phase 7).
