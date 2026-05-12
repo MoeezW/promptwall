@@ -5,7 +5,18 @@ description = "Production-grade LLM safety gateway with structured concurrent de
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Moeez Waqas", email = "moeezwaqas@outlook.com" }]
-dependencies = []
+dependencies = [
+    "fastapi>=0.136.1",
+    "httpx>=0.28.1",
+    "opentelemetry-api>=1.41.1",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.41.1",
+    "opentelemetry-sdk>=1.41.1",
+    "psycopg[binary]>=3.3.4",
+    "pydantic-settings>=2.14.1",
+    "sqlmodel>=0.0.38",
+    "structlog>=25.5.0",
+    "uvicorn[standard]>=0.46.0",
+]
 
 [dependency-groups]
 dev = [
@@ -17,6 +28,7 @@ dev = [
     "ruff>=0.7",
     "pre-commit>=3.7",
     "alembic>=1.13",
+    "respx>=0.23.1",
 ]
 
 [build-system]
@@ -37,6 +49,7 @@ select = ["ALL"]
 ignore = [
     "D203",   # incompatible with D211; we pick "no blank line before class docstring"
     "D213",   # incompatible with D212; we pick "summary on first line"
+    "D107",   # __init__ docstring is redundant with the class docstring
     "COM812", # conflicts with ruff format
     "ISC001", # conflicts with ruff format
     "CPY001", # we have LICENSE; no per-file copyright headers
@@ -70,12 +83,11 @@ strict = true
 warn_unreachable = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-disallow_any_explicit = true
 disallow_any_unimported = true
-
-[[tool.mypy.overrides]]
-module = ["tests.*", "benchmarks.*"]
-disallow_any_explicit = false
+plugins = ["pydantic.mypy"]
+# disallow_any_explicit is enforced via ruff ANN401 instead — mypy's
+# version trips on pydantic's BaseModel metaclass even when our own code
+# is Any-free.
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
