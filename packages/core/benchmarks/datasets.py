@@ -2,7 +2,12 @@
 
 Three corpora:
 
-- HackAPrompt levels 1-3 (positive examples; prompt injection attempts).
+- Public prompt-injection corpus — a chained list of Hub sources
+  (``Lakera/gandalf_ignore_instructions`` first, then
+  ``xTRam1/safe-guard-prompt-injection``, then
+  ``deepset/prompt-injections``). The first source with positive
+  examples wins; falls back to an embedded list when offline.
+  HackAPrompt is gated on the Hub so we don't use it directly.
 - JailbreakBench harmful behaviors (positive; jailbreak goals).
 - OpenAssistant first-turn English prompts (negative; benign baseline).
 

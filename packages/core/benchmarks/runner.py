@@ -280,7 +280,7 @@ async def run(
     jbb = load_jailbreakbench(n=min(n, 200))
     benign = load_openassistant_benign(n=n)
     print(
-        f"  HackAPrompt={len(hp)} JailbreakBench={len(jbb)} OpenAssistant={len(benign)}",
+        f"  prompt_injection={len(hp)} jailbreakbench={len(jbb)} benign={len(benign)}",
         flush=True,
     )
 
@@ -290,7 +290,7 @@ async def run(
     names = [d.name for d in detectors]
 
     start = time.perf_counter()
-    print("scanning HackAPrompt...", flush=True)
+    print("scanning prompt-injection corpus...", flush=True)
     hp_rows = await _scan_examples(hp, detectors, policy)
     print("scanning JailbreakBench...", flush=True)
     jbb_rows = await _scan_examples(jbb, detectors, policy)

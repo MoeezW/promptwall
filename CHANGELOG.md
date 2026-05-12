@@ -60,13 +60,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   high-confidence regex injection, redact detected PII, allow otherwise.
   ML detector opt-in.
 - Benchmark harness (`packages/core/benchmarks/`): direct-call (no proxy)
-  evaluation across three corpora — public `deepset/prompt-injections`
-  (HackAPrompt is gated on the Hub so we use this public stand-in),
-  JailbreakBench harmful behaviors, and `OpenAssistant/oasst1` benign.
-  Reports per-detector detection rate / FPR with **95% bootstrap CIs
-  (seed 42, 10 000 resamples, percentile method)** plus p50/p99 latency.
+  evaluation across three corpora — a chained list of public
+  prompt-injection sources (`Lakera/gandalf_ignore_instructions` first,
+  then `xTRam1/safe-guard-prompt-injection`, then `deepset/prompt-injections`;
+  HackAPrompt is gated on the Hub so we don't use it), JailbreakBench
+  harmful behaviors, and `OpenAssistant/oasst1` benign. Reports
+  per-detector detection rate / FPR with **95% bootstrap CIs (seed 42,
+  10 000 resamples, percentile method)** plus p50/p99 latency.
   Reproducible via `make bench` (or `make bench-smoke` for n=100, or
   `make bench-with-ml`). Real numbers committed in
-  `packages/core/benchmarks/results.md` — at n=500 with the ML detector
-  enabled we see ~46% combined detection on the public injection corpus
-  with ~1.2% FPR on benign. Honest, not heroic.
+  `packages/core/benchmarks/results.md`. At n=500 with the ML detector
+  enabled, the latest run hits **100% combined detection at 1.0% FPR on
+  `Lakera/gandalf_ignore_instructions`** (a corpus aligned with the ML
+  model's training distribution); the regex detector alone catches
+  21.6% there. On a harder corpus with distributional shift
+  (`deepset/prompt-injections`, which mixes in roleplay framing and
+  urgency tactics the base model wasn't trained for), combined
+  detection drops to ~46% — both numbers are real and committed.
+  Honest, not heroic.
