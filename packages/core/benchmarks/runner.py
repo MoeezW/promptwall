@@ -46,6 +46,7 @@ logging.getLogger("datasets").setLevel(logging.ERROR)
 @dataclass
 class _Row:
     label: int
+    dataset: str
     scores: dict[str, float]
     matched: dict[str, bool]
     degraded: dict[str, bool]
@@ -102,6 +103,7 @@ async def _scan_examples(
         rows.append(
             _Row(
                 label=example.label,
+                dataset=example.dataset,
                 scores={name: by_name[name].score for name in detector_names},
                 matched={name: by_name[name].matched for name in detector_names},
                 degraded={name: by_name[name].degraded for name in detector_names},
@@ -176,9 +178,15 @@ def _render_detection_table(
     return "\n".join(lines)
 
 
-def _render_fpr_table(rows: list[_Row], detector_names: list[str], *, n: int) -> str:
+def _render_fpr_table(
+    rows: list[_Row],
+    detector_names: list[str],
+    *,
+    n: int,
+    dataset_label: str = "benign",
+) -> str:
     lines = [
-        f"## False-positive rate on OpenAssistant benign (n={n}, seed={RANDOM_SEED})",
+        f"## False-positive rate on benign — `{dataset_label}` (n={n}, seed={RANDOM_SEED})",
         "",
         "| Detector | FPR | 95% CI |",
         "|---|---|---|",
@@ -193,6 +201,12 @@ def _render_fpr_table(rows: list[_Row], detector_names: list[str], *, n: int) ->
     return "\n".join(lines)
 
 
+def _dataset_label(rows: list[_Row], fallback: str) -> str:
+    if rows:
+        return rows[0].dataset
+    return fallback
+
+
 def _render_results(
     timestamp: datetime,
     hackaprompt_rows: list[_Row],
@@ -200,21 +214,24 @@ def _render_results(
     benign_rows: list[_Row],
     detector_names: list[str],
 ) -> str:
+    pi_label = _dataset_label(hackaprompt_rows, "prompt_injections")
+    benign_label = _dataset_label(benign_rows, "benign")
     header = (
         f"# Benchmark results\n\n"
         f"_Generated {timestamp.isoformat(timespec='seconds')}; seed={RANDOM_SEED}; "
         f"bootstrap CIs use 10 000 percentile resamples._\n"
-        f"\nNumbers are reproduced by ``make bench``. Corpora:\n"
-        f"\n- **Prompt-injection corpus** — `deepset/prompt-injections` from the Hub"
-        f" (used as a public stand-in for HackAPrompt levels 1-3, which is a gated"
-        f" dataset); falls back to a small embedded list if the Hub is unreachable.\n"
-        f"- **JailbreakBench harmful behaviors** — harmful-content goals fetched"
-        f" from the JBB artifacts repo (or the embedded fallback). These are"
-        f" direct harmful-content asks, not injection patterns; an injection"
-        f" detector legitimately scores near 0% on them. Listed here for"
-        f" completeness and because the build plan calls for it.\n"
+        f"\nNumbers are reproduced by ``make bench``. Dataset sources are"
+        f" shown in each section's title so the corpus is auditable.\n"
+        f"\n- **Prompt-injection corpus** — chained Hub sources in"
+        f" `benchmarks.datasets._INJECTION_HUB_SOURCES`; the first source with"
+        f" positive examples wins. Falls back to an embedded list when offline."
+        f" HackAPrompt is gated on the Hub, so we don't use it.\n"
+        f"- **JailbreakBench harmful behaviors** — harmful-content goals."
+        f" These are direct harmful-content asks, not injection patterns;"
+        f" an injection detector legitimately scores near 0% on them."
+        f" Reported for completeness.\n"
         f"- **Benign baseline** — `OpenAssistant/oasst1` first-turn English"
-        f" prompter messages (streamed), or an embedded benign list if offline.\n"
+        f" prompts, or an embedded benign list when offline.\n"
     )
     pieces = [header]
     if hackaprompt_rows:
@@ -222,7 +239,7 @@ def _render_results(
             _render_detection_table(
                 hackaprompt_rows,
                 detector_names,
-                dataset="Prompt-injection corpus",
+                dataset=f"Prompt-injection corpus — `{pi_label}`",
                 n=len(hackaprompt_rows),
             ),
         )
@@ -236,7 +253,14 @@ def _render_results(
             ),
         )
     if benign_rows:
-        pieces.append(_render_fpr_table(benign_rows, detector_names, n=len(benign_rows)))
+        pieces.append(
+            _render_fpr_table(
+                benign_rows,
+                detector_names,
+                n=len(benign_rows),
+                dataset_label=benign_label,
+            ),
+        )
     return "\n\n".join(pieces) + "\n"
 
 

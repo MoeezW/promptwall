@@ -62,28 +62,49 @@ _INJECTION_FALLBACK: tuple[str, ...] = (
 )
 
 
+_INJECTION_HUB_SOURCES: tuple[tuple[str, str, str], ...] = (
+    # (hub_id, text_field, label_field). Try in order; first source with
+    # positives wins. An empty label_field means "every row is positive".
+    ("Lakera/gandalf_ignore_instructions", "text", ""),
+    ("xTRam1/safe-guard-prompt-injection", "prompt", "label"),
+    ("deepset/prompt-injections", "text", "label"),
+)
+
+
 def load_prompt_injection_corpus(n: int = 1000) -> list[BenchmarkExample]:
     """Load a public prompt-injection corpus, falling back to an embedded list.
 
-    Tries ``deepset/prompt-injections`` first (public on the Hub). If the
-    Hub is unreachable or the dataset moves, falls back to a small embedded
-    set so ``make bench`` remains reproducible.
+    Walks ``_INJECTION_HUB_SOURCES`` in order — the first source that
+    yields a non-empty positive sample wins. Falls back to an embedded
+    list so ``make bench`` is offline-reproducible.
     """
-    try:
-        from datasets import load_dataset
+    from datasets import load_dataset
 
-        ds = load_dataset("deepset/prompt-injections", split="train")
-        positive = ds.filter(lambda row: row.get("label") == 1)
-        sampled = positive.shuffle(seed=RANDOM_SEED).select(range(min(n, len(positive))))
-        out: list[BenchmarkExample] = []
-        for row in sampled:
-            text = row.get("text") or ""
-            if text:
-                out.append(BenchmarkExample(text=text, label=1, dataset="prompt_injections"))
-        if out:
-            return out
-    except Exception as exc:  # noqa: BLE001 -- network/dataset errors are expected
-        log.warning("prompt-injection hub fetch failed (%s); using fallback", exc)
+    for hub_id, text_field, label_field in _INJECTION_HUB_SOURCES:
+        try:
+            ds = load_dataset(hub_id, split="train")
+            positive = (
+                ds.filter(lambda row, lf=label_field: int(row.get(lf, 0)) == 1)
+                if label_field
+                else ds
+            )
+            if len(positive) == 0:
+                continue
+            sampled = positive.shuffle(seed=RANDOM_SEED).select(
+                range(min(n, len(positive))),
+            )
+            out: list[BenchmarkExample] = []
+            for row in sampled:
+                text = row.get(text_field) or ""
+                if text:
+                    out.append(
+                        BenchmarkExample(text=text, label=1, dataset=hub_id),
+                    )
+            if out:
+                log.info("loaded %d positives from %s", len(out), hub_id)
+                return out
+        except Exception as exc:  # noqa: BLE001 -- expected; we'll try the next source
+            log.warning("hub source %s failed (%s)", hub_id, exc)
     return [
         BenchmarkExample(text=t, label=1, dataset="prompt_injections_fallback")
         for t in _INJECTION_FALLBACK[:n]
