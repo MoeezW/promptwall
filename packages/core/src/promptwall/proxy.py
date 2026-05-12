@@ -87,9 +87,7 @@ def _build_detectors(policy: Policy) -> list[Detector]:
     ml_cfg = policy.detectors.get("injection_ml")
     if ml_cfg is not None and ml_cfg.enabled:
         # Lazy import: avoid loading ONNX/Torch unless the operator opts in.
-        from promptwall.detectors.injection_ml import (
-            InjectionMLDetector,
-        )
+        from promptwall.detectors.injection_ml import InjectionMLDetector
 
         detectors.append(InjectionMLDetector())
     return detectors
