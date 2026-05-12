@@ -6,11 +6,14 @@ requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Moeez Waqas", email = "moeezwaqas@outlook.com" }]
 dependencies = [
+    "detect-secrets>=1.5.0",
+    "en-core-web-sm",
     "fastapi>=0.136.1",
     "httpx>=0.28.1",
     "opentelemetry-api>=1.41.1",
     "opentelemetry-exporter-otlp-proto-grpc>=1.41.1",
     "opentelemetry-sdk>=1.41.1",
+    "presidio-analyzer>=2.2.362",
     "psycopg[binary]>=3.3.4",
     "pydantic-settings>=2.14.1",
     "sqlmodel>=0.0.38",
@@ -108,3 +111,6 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "\\.\\.\\.",
 ]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
