@@ -38,3 +38,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   **Measured ~18 ms p99 on FP32**, well under the 25 ms budget — no
   int8 quantization needed for v0.1. `torch` came in as a transitive
   dep of `optimum 2.x`; runtime container will strip it (Phase 7).
+- Reversible PII redaction: HMAC-SHA256-keyed tokens of the form
+  `<PII:{TYPE}_{HMAC8}>` with a per-request 32-byte random salt. The
+  redact / hydrate round-trip is the most important invariant in the
+  codebase, verified by hypothesis. Look-alike tokens that the model
+  hallucinates are left as-is — only tokens whose HMAC matches the
+  per-request mapping are substituted.
+- Policy engine: YAML schema (`promptwall.config`) loaded into Pydantic
+  models, plus a `simpleeval`-backed expression evaluator
+  (`promptwall.policy`) over detector results. Supports `and / or / not`,
+  comparisons, attribute access (`pii.matched`, `injection_ml.score`);
+  rejects function calls and arbitrary Python. Missing or degraded
+  detectors fall the rule's action through to `degraded_action`
+  (default `block`). Hypothesis property test confirms the evaluator
+  never crashes on random rules + random detector results.
+- Proxy now runs detectors → policy → maybe-redact → forward → maybe-hydrate
+  → respond. End-to-end test verifies a prompt with a credit card is
+  redacted before forwarding and re-hydrated in the response; blocked
+  requests never touch the upstream provider.
+- Default policy (`policies/default.yaml`): block on secrets, block on
+  high-confidence regex injection, redact detected PII, allow otherwise.
+  ML detector opt-in.
