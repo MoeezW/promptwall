@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Test / type / lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# uv
+.uv/
+
+# Secrets / local config
+.env
+.env.local
+.env.*.local
+
+# Model weights & HF caches (pulled at first run)
+.cache/
+.huggingface/
+models/
+*.onnx
+
+# Benchmark corpora (downloaded, not committed)
+packages/core/benchmarks/data/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+pnpm-debug.log
+.pnpm-store/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Local-only planning and AI guidance (not part of the public repo)
+CLAUDE.md
+BUILD_PLAN.md
