@@ -18,3 +18,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   structlog emits JSON logs. Dedicated `main.py` entry point sets the
   Windows selector event-loop policy before uvicorn starts the loop, so
   psycopg's async mode works cross-platform.
+- Detector framework: `Detector` Protocol with `DetectorResult` /
+  `Span` / `ScanContext` DTOs, an async-aware three-state circuit
+  breaker (closed | open | half_open) per detector, and a parallel
+  runner built on `asyncio.TaskGroup` that enforces per-detector
+  timeouts and sheds failing detectors. Hypothesis property tests
+  cover the FSM and the runner's "every detector returns a result"
+  invariant. Three concrete detectors: a curated regex pack for
+  prompt injection (~30 patterns drawn from public corpora), a thin
+  wrapper around Yelp's `detect-secrets` for credentials/tokens, and
+  a Microsoft Presidio analyzer for PII with a custom Canadian
+  Social Insurance Number recognizer (Luhn-validated). 98% coverage
+  on the detector package.
