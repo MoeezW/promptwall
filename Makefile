@@ -40,7 +40,13 @@ typecheck:
 	cd $(CORE) && uv run mypy src
 
 bench:
-	cd $(CORE) && uv run python -m promptwall.cli bench
+	cd $(CORE) && uv run python -m promptwall.cli bench --n 1000
+
+bench-smoke:
+	cd $(CORE) && uv run python -m promptwall.cli bench --n 100
+
+bench-with-ml:
+	cd $(CORE) && uv run python -m promptwall.cli bench --n 1000 --with-ml
 
 migrate:
 	cd $(CORE) && uv run alembic upgrade head

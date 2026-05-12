@@ -59,3 +59,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Default policy (`policies/default.yaml`): block on secrets, block on
   high-confidence regex injection, redact detected PII, allow otherwise.
   ML detector opt-in.
+- Benchmark harness (`packages/core/benchmarks/`): direct-call (no proxy)
+  evaluation across three corpora — public `deepset/prompt-injections`
+  (HackAPrompt is gated on the Hub so we use this public stand-in),
+  JailbreakBench harmful behaviors, and `OpenAssistant/oasst1` benign.
+  Reports per-detector detection rate / FPR with **95% bootstrap CIs
+  (seed 42, 10 000 resamples, percentile method)** plus p50/p99 latency.
+  Reproducible via `make bench` (or `make bench-smoke` for n=100, or
+  `make bench-with-ml`). Real numbers committed in
+  `packages/core/benchmarks/results.md` — at n=500 with the ML detector
+  enabled we see ~46% combined detection on the public injection corpus
+  with ~1.2% FPR on benign. Honest, not heroic.
