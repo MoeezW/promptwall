@@ -57,6 +57,9 @@ pnpm-debug.log
 .DS_Store
 Thumbs.db
 
+# Runtime logs from local processes
+*.log
+
 # Docker
 docker-compose.override.yml
 

@@ -1,4 +1,4 @@
-.PHONY: dev dev-down test lint format typecheck bench migrate clean help
+.PHONY: dev dev-down serve test lint format typecheck bench migrate clean help
 
 CORE := packages/core
 
@@ -6,6 +6,7 @@ help:
 	@echo "promptwall — make targets"
 	@echo "  dev        Bring up Postgres + Jaeger via docker compose"
 	@echo "  dev-down   Stop the dev stack (keeps volumes)"
+	@echo "  serve      Run the proxy with uvicorn --reload on :8000"
 	@echo "  test       Run the test suite"
 	@echo "  lint       ruff check + ruff format --check"
 	@echo "  format     ruff format (writes)"
@@ -22,6 +23,9 @@ dev:
 
 dev-down:
 	docker compose down
+
+serve:
+	cd $(CORE) && uv run python -m promptwall.main
 
 test:
 	cd $(CORE) && uv run pytest
