@@ -17,12 +17,6 @@ repos:
         args: [--fix]
       - id: ruff-format
 
-  - repo: local
-    hooks:
-      - id: mypy
-        name: mypy (strict)
-        entry: uv
-        args: [run, --project, packages/core, mypy, packages/core/src]
-        language: system
-        types: [python]
-        pass_filenames: false
+# Note: mypy is not a pre-commit hook because pre-commit's fresh shell can't
+# locate the uv-managed environment on Windows. Run `make typecheck` before
+# pushing; CI runs the same check on every PR.
