@@ -17,6 +17,8 @@ dependencies = [
     "presidio-analyzer>=2.2.362",
     "psycopg[binary]>=3.3.4",
     "pydantic-settings>=2.14.1",
+    "pyyaml>=6.0.3",
+    "simpleeval>=1.0.7",
     "sqlmodel>=0.0.38",
     "structlog>=25.5.0",
     "transformers>=4.57.6",
@@ -34,6 +36,7 @@ dev = [
     "pre-commit>=3.7",
     "alembic>=1.13",
     "respx>=0.23.1",
+    "types-pyyaml>=6.0.12.20260510",
 ]
 
 [build-system]
@@ -94,10 +97,9 @@ plugins = ["pydantic.mypy"]
 # version trips on pydantic's BaseModel metaclass even when our own code
 # is Any-free.
 
-# optimum and transformers ship type information inconsistently; treat
-# them as untyped at the boundary so our code stays strict elsewhere.
+# Third-party libraries without type stubs / py.typed markers.
 [[tool.mypy.overrides]]
-module = ["optimum.*", "transformers.*"]
+module = ["optimum.*", "transformers.*", "simpleeval"]
 ignore_missing_imports = true
 disallow_untyped_calls = false
 disallow_any_unimported = false
