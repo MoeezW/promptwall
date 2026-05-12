@@ -1,6 +1,7 @@
 """Environment-driven configuration."""
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,6 +35,8 @@ class Settings(BaseSettings):
 
     log_level: str = "INFO"
     log_renderer: str = "json"
+
+    policy_path: Path = Path("policies/default.yaml")
 
 
 @lru_cache(maxsize=1)
