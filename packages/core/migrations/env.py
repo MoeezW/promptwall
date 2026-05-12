@@ -13,6 +13,11 @@ from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+from sqlmodel import SQLModel
+
+# Importing the package registers every table on SQLModel.metadata; alembic
+# autogenerate diffs that against the live database.
+from promptwall import models  # imported for side effect: registers tables on metadata
 
 DEFAULT_DEV_URL = "postgresql+psycopg://promptwall:promptwall@localhost:5432/promptwall"
 
@@ -26,7 +31,7 @@ config.set_main_option(
     os.environ.get("PROMPTWALL_DATABASE_URL", DEFAULT_DEV_URL),
 )
 
-target_metadata = None
+target_metadata = SQLModel.metadata
 
 
 def run_migrations_offline() -> None:
