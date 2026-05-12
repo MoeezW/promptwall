@@ -13,11 +13,13 @@ dependencies = [
     "opentelemetry-api>=1.41.1",
     "opentelemetry-exporter-otlp-proto-grpc>=1.41.1",
     "opentelemetry-sdk>=1.41.1",
+    "optimum[onnxruntime]>=2.1.0",
     "presidio-analyzer>=2.2.362",
     "psycopg[binary]>=3.3.4",
     "pydantic-settings>=2.14.1",
     "sqlmodel>=0.0.38",
     "structlog>=25.5.0",
+    "transformers>=4.57.6",
     "uvicorn[standard]>=0.46.0",
 ]
 
@@ -92,11 +94,32 @@ plugins = ["pydantic.mypy"]
 # version trips on pydantic's BaseModel metaclass even when our own code
 # is Any-free.
 
+# optimum and transformers ship type information inconsistently; treat
+# them as untyped at the boundary so our code stays strict elsewhere.
+[[tool.mypy.overrides]]
+module = ["optimum.*", "transformers.*"]
+ignore_missing_imports = true
+disallow_untyped_calls = false
+disallow_any_unimported = false
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = "--strict-markers --strict-config -q"
 testpaths = ["tests"]
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # HuggingFace / transformers / torch chatter that's not actionable from our code.
+    "ignore::UserWarning:huggingface_hub.*",
+    "ignore::FutureWarning:transformers.*",
+    "ignore::DeprecationWarning:transformers.*",
+    "ignore::DeprecationWarning:optimum.*",
+    "ignore::DeprecationWarning:torch.*",
+    "ignore::DeprecationWarning:onnxruntime.*",
+    "ignore:.*torch_dtype.* is deprecated:FutureWarning",
+    # Torch / ONNX leave background resources that pytest catches at teardown.
+    "ignore::ResourceWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.coverage.run]
 source = ["src/promptwall"]
