@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+# Tab-indented Makefile recipes — must stay tab-indented
+Makefile text eol=lf
+*.mk text eol=lf
+
+# Binary
+*.png binary
+*.jpg binary
+*.onnx binary
