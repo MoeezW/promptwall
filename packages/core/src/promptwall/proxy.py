@@ -134,6 +134,19 @@ app = FastAPI(lifespan=_lifespan, title="promptwall", version="0.1.0")
 app.include_router(api_router)
 
 
+@app.get("/")
+async def root() -> dict[str, object]:
+    """Service identifier — humans land here, the dashboard lives on :3000."""
+    return {
+        "service": "promptwall",
+        "version": "0.1.0",
+        "proxy_endpoint": "/v1/chat/completions",
+        "dashboard_api": "/api/requests",
+        "openapi_docs": "/docs",
+        "dashboard_url": "http://localhost:3000",
+    }
+
+
 def get_adapter(request: Request) -> OpenAIAdapter:
     """Pull the OpenAI adapter off app.state with a type check."""
     adapter = getattr(request.app.state, "openai", None)
