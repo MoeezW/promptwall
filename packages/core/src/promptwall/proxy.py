@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from promptwall import telemetry
+from promptwall.api import router as api_router
 from promptwall.config import Action, DetectorConfig, Policy, load_policy
 from promptwall.db import close_engine, get_session
 from promptwall.detectors.base import Detector, DetectorResult, ScanContext
@@ -130,6 +131,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(lifespan=_lifespan, title="promptwall", version="0.1.0")
+app.include_router(api_router)
 
 
 def get_adapter(request: Request) -> OpenAIAdapter:
@@ -215,6 +217,7 @@ async def chat_completions(  # noqa: PLR0913 -- FastAPI deps live in the signatu
                 model=body.model,
                 request_start=request_start,
                 decision=decision,
+                detector_results=detector_results,
             )
 
         redaction_map: RedactionMap | None = None
@@ -241,6 +244,8 @@ async def chat_completions(  # noqa: PLR0913 -- FastAPI deps live in the signatu
         model=body.model,
         latency_ms=forward_latency_ms,
         status=response.status_code,
+        detector_results=_serialize_detector_results(detector_results),
+        policy_decision=_serialize_decision(decision),
     )
     log.info(
         "proxy.chat.completions.done",
@@ -254,13 +259,14 @@ async def chat_completions(  # noqa: PLR0913 -- FastAPI deps live in the signatu
     return JSONResponse(content=response_data, status_code=response.status_code)
 
 
-async def _handle_block(
+async def _handle_block(  # noqa: PLR0913 -- internal helper, all kwargs
     *,
     session: AsyncSession,
     request_hash: str,
     model: str,
     request_start: float,
     decision: Decision,
+    detector_results: Sequence[DetectorResult],
 ) -> JSONResponse:
     latency_ms = (time.perf_counter() - request_start) * _SECONDS_TO_MS
     await _persist_request(
@@ -269,6 +275,8 @@ async def _handle_block(
         model=model,
         latency_ms=latency_ms,
         status=_BLOCKED_STATUS,
+        detector_results=_serialize_detector_results(detector_results),
+        policy_decision=_serialize_decision(decision),
     )
     log.info(
         "proxy.chat.completions.blocked",
@@ -331,19 +339,38 @@ def _hash_payload(payload: Mapping[str, object]) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
-async def _persist_request(
+async def _persist_request(  # noqa: PLR0913 -- internal helper, all kwargs
     session: AsyncSession,
     *,
     request_hash: str,
     model: str,
     latency_ms: float,
     status: int,
+    detector_results: list[dict[str, object]] | None = None,
+    policy_decision: dict[str, object] | None = None,
 ) -> None:
     record = RequestRecord(
         request_hash=request_hash,
         model=model,
         latency_ms=latency_ms,
         status=status,
+        detector_results=detector_results,
+        policy_decision=policy_decision,
     )
     session.add(record)
     await session.commit()
+
+
+def _serialize_detector_results(
+    results: Sequence[DetectorResult],
+) -> list[dict[str, object]]:
+    return [r.model_dump(mode="json") for r in results]
+
+
+def _serialize_decision(decision: Decision) -> dict[str, object]:
+    return {
+        "action": decision.action.value,
+        "reason": decision.reason,
+        "matched_rule_index": decision.matched_rule_index,
+        "degraded_detectors": list(decision.degraded_detectors),
+    }
