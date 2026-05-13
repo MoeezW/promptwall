@@ -1,12 +1,14 @@
-.PHONY: dev dev-down serve test lint format typecheck bench migrate clean help
+.PHONY: dev dev-down serve dashboard test lint format typecheck bench migrate clean help
 
 CORE := packages/core
+DASHBOARD := packages/dashboard
 
 help:
 	@echo "promptwall — make targets"
 	@echo "  dev        Bring up Postgres + Jaeger via docker compose"
 	@echo "  dev-down   Stop the dev stack (keeps volumes)"
 	@echo "  serve      Run the proxy with uvicorn --reload on :8000"
+	@echo "  dashboard  Run the Next.js dashboard on :3000"
 	@echo "  test       Run the test suite"
 	@echo "  lint       ruff check + ruff format --check"
 	@echo "  format     ruff format (writes)"
@@ -26,6 +28,9 @@ dev-down:
 
 serve:
 	cd $(CORE) && uv run python -m promptwall.main
+
+dashboard:
+	cd $(DASHBOARD) && pnpm dev
 
 test:
 	cd $(CORE) && uv run pytest

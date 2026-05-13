@@ -59,6 +59,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Default policy (`policies/default.yaml`): block on secrets, block on
   high-confidence regex injection, redact detected PII, allow otherwise.
   ML detector opt-in.
+- Dashboard: Next.js 16 App Router + Tailwind + Recharts at
+  `packages/dashboard/`. Two pages — `/requests` (paginated list with
+  action badges) and `/requests/[id]` (detail view with a per-detector
+  score bar chart, full decision tree, and a deep link to the Jaeger
+  trace UI). Server-component fetches; no client-side state library.
+  Reads from a new FastAPI router in `promptwall.api`
+  (`GET /api/requests`, `GET /api/requests/{id}`) mounted on the same
+  uvicorn that serves the proxy; the Next.js dev server proxies
+  `/api/*` to it via `rewrites`. To support the dashboard, the
+  `requests` table picked up two JSON columns
+  (`detector_results`, `policy_decision`) so every proxied request now
+  stores its decision tree end-to-end. `make dashboard` runs the
+  Next.js dev server on `:3000`.
 - Benchmark harness (`packages/core/benchmarks/`): direct-call (no proxy)
   evaluation across three corpora — a chained list of public
   prompt-injection sources (`Lakera/gandalf_ignore_instructions` first,
