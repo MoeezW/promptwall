@@ -1,65 +1,132 @@
-import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+import { fetchRequests } from "@/lib/api";
+
+export const dynamic = "force-dynamic";
+
+function countAction(items: Array<{ action: string | null }>, action: string): number {
+  return items.filter((i) => i.action === action).length;
+}
+
+export default async function Home() {
+  let total = 0;
+  let blocks = 0;
+  let redacts = 0;
+  let allows = 0;
+  let error: string | null = null;
+
+  try {
+    const response = await fetchRequests(200, 0);
+    total = response.total;
+    blocks = countAction(response.items, "block");
+    redacts = countAction(response.items, "redact");
+    allows = countAction(response.items, "allow");
+  } catch (e) {
+    error = e instanceof Error ? e.message : "unknown error";
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="mx-auto max-w-5xl px-6 py-12">
+      <header className="mb-10">
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+          promptwall
+        </h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Self-hosted LLM safety gateway. Detector pipeline, policy engine,
+          and reversible PII redaction in front of every request.
+        </p>
+      </header>
+
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-800">
+          <p className="font-semibold">API not reachable</p>
+          <p className="mt-1">
+            Cannot load summary from <code className="font-mono">/api/requests</code>:{" "}
+            {error}
+          </p>
+          <p className="mt-2 text-xs text-red-700">
+            Is the proxy running on{" "}
+            <code className="font-mono">localhost:8000</code>? Start it with{" "}
+            <code className="font-mono">make serve</code>.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      ) : (
+        <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <Stat label="Total requests" value={total.toString()} />
+          <Stat label="Blocked" value={blocks.toString()} accent="red" />
+          <Stat label="Redacted" value={redacts.toString()} accent="amber" />
+          <Stat label="Allowed" value={allows.toString()} accent="emerald" />
+        </section>
+      )}
+
+      <section className="mt-10 rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Next steps</h2>
+        <ul className="mt-4 space-y-3 text-sm text-slate-700">
+          <li>
+            <Link
+              href="/requests"
+              className="font-medium text-blue-600 hover:underline"
+            >
+              View all requests →
+            </Link>{" "}
+            — paginated list with action badges, click any row for the
+            decision tree.
+          </li>
+          <li>
+            <a
+              href="http://localhost:16686"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-blue-600 hover:underline"
+            >
+              Open Jaeger →
+            </a>{" "}
+            — distributed traces for every proxied request, named{" "}
+            <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">
+              proxy.chat.completions
+            </code>
+            .
+          </li>
+          <li>
+            <a
+              href="http://localhost:8000/docs"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-blue-600 hover:underline"
+            >
+              Browse the API →
+            </a>{" "}
+            — FastAPI's auto-generated docs for{" "}
+            <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">
+              POST /v1/chat/completions
+            </code>{" "}
+            and the dashboard read endpoints.
+          </li>
+        </ul>
+      </section>
+    </main>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: "red" | "amber" | "emerald";
+}) {
+  const tones: Record<string, string> = {
+    red: "text-red-700",
+    amber: "text-amber-700",
+    emerald: "text-emerald-700",
+  };
+  const tone = accent ? tones[accent] : "text-slate-900";
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`mt-2 text-3xl font-semibold ${tone}`}>{value}</div>
     </div>
   );
 }

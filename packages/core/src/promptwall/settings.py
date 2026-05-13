@@ -7,6 +7,16 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _default_policy_path() -> Path:
+    """Locate ``policies/default.yaml`` relative to the repo, not CWD.
+
+    ``make serve`` cd's into ``packages/core/`` first, so a CWD-relative
+    default would silently miss the file. Walking up from this file gets
+    us to the repo root regardless of how the proxy was launched.
+    """
+    return Path(__file__).resolve().parents[4] / "policies" / "default.yaml"
+
+
 class Settings(BaseSettings):
     """All runtime knobs sourced from the environment.
 
@@ -36,7 +46,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_renderer: str = "json"
 
-    policy_path: Path = Path("policies/default.yaml")
+    policy_path: Path = Field(default_factory=_default_policy_path)
 
 
 @lru_cache(maxsize=1)
