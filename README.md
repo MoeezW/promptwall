@@ -2,7 +2,7 @@
 
 > A self-hosted LLM safety gateway. Drop it in front of any OpenAI-compatible provider with a one-line client change.
 
-[![ci](https://github.com/moeezwaqas/promptwall/actions/workflows/ci.yml/badge.svg)](https://github.com/moeezwaqas/promptwall/actions/workflows/ci.yml)
+[![ci](https://github.com/MoeezW/promptwall/actions/workflows/ci.yml/badge.svg)](https://github.com/MoeezW/promptwall/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 
