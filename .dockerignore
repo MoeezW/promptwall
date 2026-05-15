@@ -1,0 +1,80 @@
+# Anything in .gitignore should also stay out of the Docker build context,
+# otherwise the multi-GB .venv and node_modules dirs make the image bloat
+# and the build slow. Keep these in sync with .gitignore where it makes sense.
+
+# Python build artifacts
+**/__pycache__/
+**/*.py[cod]
+**/*.so
+**/*.egg-info/
+**/*.egg
+**/build/
+**/dist/
+
+# Virtual environments
+**/.venv/
+**/venv/
+
+# Caches
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.hypothesis/
+**/.coverage
+**/.coverage.*
+**/htmlcov/
+**/coverage.xml
+**/.uv/
+
+# Secrets & local config
+**/.env
+**/.env.*
+!.env.example
+
+# Model weights & HF caches (pulled at runtime on first use)
+**/.cache/
+**/.huggingface/
+**/models/
+**/*.onnx
+
+# Benchmark data (downloaded, not committed)
+packages/core/benchmarks/data/
+
+# Node / Next.js
+**/node_modules/
+**/.next/
+**/out/
+**/*.tsbuildinfo
+**/pnpm-debug.log
+**/.pnpm-store/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# VCS
+.git/
+.gitignore
+.gitattributes
+
+# Logs
+*.log
+
+# Tests, docs, examples — runtime image doesn't need them
+packages/core/tests/
+docs/
+examples/
+*.md
+!packages/core/README.md
+LICENSE
+Makefile
+
+# Compose overrides
+docker-compose.override.yml
+
+# Local-only planning
+CLAUDE.md
+BUILD_PLAN.md
