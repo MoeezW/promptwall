@@ -1,0 +1,39 @@
+name: bench
+
+on:
+  pull_request:
+    paths:
+      - "packages/core/src/promptwall/**"
+      - "packages/core/benchmarks/**"
+      - "policies/**"
+      - ".github/workflows/bench.yml"
+
+defaults:
+  run:
+    shell: bash
+    working-directory: packages/core
+
+# This runs the smoke version (n=100, no ML, no commit). It exists to catch
+# structural regressions — dataset loader breaks, stats functions returning
+# NaN, the runner failing to enumerate detectors. Real numbers come from
+# `make bench` run locally and committed in benchmarks/results.md.
+jobs:
+  bench-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "packages/core/uv.lock"
+      - name: Cache HuggingFace datasets
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-datasets-${{ runner.os }}-bench-smoke
+      - run: uv sync --frozen
+      - name: Run smoke bench (n=100, regex + secrets + pii only)
+        run: uv run python -m promptwall.cli bench --n 100
+        env:
+          OPENAI_API_KEY: ci
