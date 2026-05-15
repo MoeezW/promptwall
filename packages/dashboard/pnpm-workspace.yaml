@@ -1,0 +1,10 @@
+# pnpm 11+ requires a workspace declaration with a `packages:` field and an
+# explicit allowlist of packages whose postinstall scripts may run. sharp
+# compiles native image bindings; unrs-resolver is a Rust-native resolver
+# used by ESLint plugins. Both are reputable upstream packages we trust.
+packages:
+  - .
+
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
