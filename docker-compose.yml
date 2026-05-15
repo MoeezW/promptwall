@@ -22,5 +22,34 @@ services:
       - "4317:4317"    # OTLP gRPC
       - "4318:4318"    # OTLP HTTP
 
+  core:
+    build:
+      context: .
+      dockerfile: packages/core/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    environment:
+      PROMPTWALL_DATABASE_URL: postgresql+psycopg://promptwall:promptwall@postgres:5432/promptwall
+      PROMPTWALL_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-missing}
+    ports:
+      - "8000:8000"
+    profiles: ["full"]
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: packages/dashboard/Dockerfile
+    depends_on:
+      - core
+    environment:
+      PROMPTWALL_API_URL: http://core:8000
+    ports:
+      - "3000:3000"
+    profiles: ["full"]
+
 volumes:
   postgres-data:
