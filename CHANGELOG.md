@@ -4,90 +4,146 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] — 0.1.0
 
-### Added
+The first release. promptwall is an OpenAI-compatible reverse proxy that
+scans inputs against a configurable safety policy and forwards the rest
+to the real provider. What lands in 0.1.0:
 
-- Repository scaffolding: `packages/core` Python project with strict ruff
-  + mypy, `docker-compose` dev stack (Postgres 16 + Jaeger 2.17), Alembic
-  with an empty initial migration, Makefile targets, and pre-commit hooks.
-- Proxy skeleton: `POST /v1/chat/completions` is an OpenAI-compatible
-  passthrough. Every request is hashed (SHA-256), persisted to the
-  `requests` table via async SQLAlchemy / psycopg3, and traced with OTLP
-  spans (`proxy.chat.completions` with `provider.openai.forward` child).
-  structlog emits JSON logs. Dedicated `main.py` entry point sets the
-  Windows selector event-loop policy before uvicorn starts the loop, so
-  psycopg's async mode works cross-platform.
-- Detector framework: `Detector` Protocol with `DetectorResult` /
-  `Span` / `ScanContext` DTOs, an async-aware three-state circuit
-  breaker (closed | open | half_open) per detector, and a parallel
-  runner built on `asyncio.TaskGroup` that enforces per-detector
-  timeouts and sheds failing detectors. Hypothesis property tests
-  cover the FSM and the runner's "every detector returns a result"
-  invariant. Three concrete detectors: a curated regex pack for
-  prompt injection (~30 patterns drawn from public corpora), a thin
-  wrapper around Yelp's `detect-secrets` for credentials/tokens, and
-  a Microsoft Presidio analyzer for PII with a custom Canadian
-  Social Insurance Number recognizer (Luhn-validated). 98% coverage
-  on the detector package.
-- ML prompt-injection detector: `protectai/deberta-v3-base-prompt-injection-v2`
-  via ONNX Runtime through `optimum`. Auto-downloads from HuggingFace
-  and exports to ONNX on first construction (~50 s cold); subsequent
-  loads reuse the HF cache (~1-2 s). Synchronous inference wrapped in
-  `asyncio.to_thread`; 5-prompt warmup in the constructor.
-  **Measured ~18 ms p99 on FP32**, well under the 25 ms budget — no
-  int8 quantization needed for v0.1. `torch` came in as a transitive
-  dep of `optimum 2.x`; runtime container will strip it (Phase 7).
-- Reversible PII redaction: HMAC-SHA256-keyed tokens of the form
-  `<PII:{TYPE}_{HMAC8}>` with a per-request 32-byte random salt. The
-  redact / hydrate round-trip is the most important invariant in the
-  codebase, verified by hypothesis. Look-alike tokens that the model
-  hallucinates are left as-is — only tokens whose HMAC matches the
-  per-request mapping are substituted.
-- Policy engine: YAML schema (`promptwall.config`) loaded into Pydantic
-  models, plus a `simpleeval`-backed expression evaluator
-  (`promptwall.policy`) over detector results. Supports `and / or / not`,
-  comparisons, attribute access (`pii.matched`, `injection_ml.score`);
-  rejects function calls and arbitrary Python. Missing or degraded
-  detectors fall the rule's action through to `degraded_action`
-  (default `block`). Hypothesis property test confirms the evaluator
-  never crashes on random rules + random detector results.
-- Proxy now runs detectors → policy → maybe-redact → forward → maybe-hydrate
-  → respond. End-to-end test verifies a prompt with a credit card is
-  redacted before forwarding and re-hydrated in the response; blocked
-  requests never touch the upstream provider.
-- Default policy (`policies/default.yaml`): block on secrets, block on
-  high-confidence regex injection, redact detected PII, allow otherwise.
-  ML detector opt-in.
-- Dashboard: Next.js 16 App Router + Tailwind + Recharts at
-  `packages/dashboard/`. Two pages — `/requests` (paginated list with
-  action badges) and `/requests/[id]` (detail view with a per-detector
+### Proxy and provider
+
+- `POST /v1/chat/completions` is an OpenAI-compatible passthrough that
+  runs detectors → policy → maybe-redact → forward → maybe-hydrate before
+  responding. Every request is hashed (SHA-256) and persisted to the
+  `requests` table; the request envelope, detector results, and policy
+  decision land in three columns of one row per request.
+- `providers/openai.py` is a pooled `httpx.AsyncClient` adapter; the
+  proxy never invents the upstream URL or auth. Streaming (`stream=true`)
+  is forwarded as SSE pass-through and not scanned in v0.1.
+- A dedicated `main.py` entry point sets `WindowsSelectorEventLoopPolicy`
+  before uvicorn starts the loop so `psycopg`'s async mode works on
+  Windows as well as Linux.
+
+### Detectors
+
+- `Detector` Protocol with `DetectorResult` / `Span` / `ScanContext`
+  DTOs in `detectors/base.py`.
+- Three-state circuit breaker (closed | open | half_open) per detector
+  with configurable failure threshold and recovery window. State
+  transitions are covered by a hypothesis property test.
+- Parallel runner built on `asyncio.TaskGroup` that enforces a
+  per-detector timeout, converts timeouts and exceptions into synthetic
+  degraded results, and trips the relevant breaker. A second property
+  test verifies "every detector returns a result, even when peers fail."
+- Four concrete detectors:
+  - `injection_regex` — a curated pack of ~30 prompt-injection patterns
+    drawn from public corpora.
+  - `secrets` — thin wrapper around Yelp's `detect-secrets` with span
+    extraction for the dashboard.
+  - `pii` — Microsoft Presidio's `AnalyzerEngine` with the default
+    recognizers plus a custom Luhn-validated Canadian SIN recognizer.
+  - `injection_ml` — `protectai/deberta-v3-base-prompt-injection-v2`
+    auto-exported to ONNX through `optimum`. Synchronous inference is
+    wrapped in `asyncio.to_thread`; a 5-prompt warmup runs at startup
+    so the first real request isn't a 500 ms outlier. **Measured
+    ~18 ms p99 on FP32**, well inside the 25 ms budget — no INT8
+    quantization needed for v0.1.
+
+### Policy engine
+
+- YAML policy schema in `promptwall.config`, validated through Pydantic.
+- `simpleeval`-backed expression evaluator over detector results
+  (`and / or / not`, comparisons, dotted access — no function calls, no
+  arbitrary Python). When a referenced detector is missing or degraded
+  the rule falls through to `degraded_action` (default `block`).
+- A hypothesis property test confirms the evaluator never crashes on
+  random rules + random detector results.
+
+### Reversible PII redaction
+
+- Per-request 32-byte cryptographic salt; PII spans are replaced with
+  HMAC-SHA256-keyed tokens of the form `<PII:{TYPE}_{HMAC8}>`.
+- Hydration on the response side substitutes back **only** the tokens
+  whose HMAC matches the per-request mapping. Look-alike tokens the
+  model may hallucinate are left as-is.
+- The `hydrate(redact(text)) == text` round-trip is the most important
+  invariant in the codebase and is verified by a hypothesis test on
+  every commit.
+
+### Benchmark harness
+
+- Direct-call (no provider spend) evaluation across three corpora:
+  a chained list of public prompt-injection sources
+  (`Lakera/gandalf_ignore_instructions` first, then
+  `xTRam1/safe-guard-prompt-injection`, then `deepset/prompt-injections`;
+  HackAPrompt is Hub-gated so we skip it), JailbreakBench harmful
+  behaviors (reported for completeness — these are direct harmful-content
+  asks, not injection patterns), and `OpenAssistant/oasst1` first-turn
+  English prompts as the benign baseline.
+- Reports per-detector detection rate / FPR with **95% bootstrap CIs
+  (seed 42, 10 000 percentile resamples)** plus p50 and p99 latency.
+- Reproducible via `make bench` (n=1000), `make bench-smoke` (n=100,
+  for CI), and `make bench-with-ml` (engages the ML detector).
+- Real numbers committed in `packages/core/benchmarks/results.md`. With
+  the ML detector enabled at n=500, the latest run hits **100% combined
+  detection at 1.0% FPR on `Lakera/gandalf_ignore_instructions`**.
+  The regex detector alone catches 21.6% on the same corpus. Honest,
+  not heroic.
+
+### Dashboard
+
+- Next.js 16 App Router + Tailwind + Recharts at `packages/dashboard/`.
+- Two pages: `/requests` (paginated table with allow / redact / block
+  action badges) and `/requests/[id]` (detail view with the per-detector
   score bar chart, full decision tree, and a deep link to the Jaeger
-  trace UI). Server-component fetches; no client-side state library.
-  Reads from a new FastAPI router in `promptwall.api`
-  (`GET /api/requests`, `GET /api/requests/{id}`) mounted on the same
-  uvicorn that serves the proxy; the Next.js dev server proxies
-  `/api/*` to it via `rewrites`. To support the dashboard, the
-  `requests` table picked up two JSON columns
-  (`detector_results`, `policy_decision`) so every proxied request now
-  stores its decision tree end-to-end. `make dashboard` runs the
-  Next.js dev server on `:3000`.
-- Benchmark harness (`packages/core/benchmarks/`): direct-call (no proxy)
-  evaluation across three corpora — a chained list of public
-  prompt-injection sources (`Lakera/gandalf_ignore_instructions` first,
-  then `xTRam1/safe-guard-prompt-injection`, then `deepset/prompt-injections`;
-  HackAPrompt is gated on the Hub so we don't use it), JailbreakBench
-  harmful behaviors, and `OpenAssistant/oasst1` benign. Reports
-  per-detector detection rate / FPR with **95% bootstrap CIs (seed 42,
-  10 000 resamples, percentile method)** plus p50/p99 latency.
-  Reproducible via `make bench` (or `make bench-smoke` for n=100, or
-  `make bench-with-ml`). Real numbers committed in
-  `packages/core/benchmarks/results.md`. At n=500 with the ML detector
-  enabled, the latest run hits **100% combined detection at 1.0% FPR on
-  `Lakera/gandalf_ignore_instructions`** (a corpus aligned with the ML
-  model's training distribution); the regex detector alone catches
-  21.6% there. On a harder corpus with distributional shift
-  (`deepset/prompt-injections`, which mixes in roleplay framing and
-  urgency tactics the base model wasn't trained for), combined
-  detection drops to ~46% — both numbers are real and committed.
-  Honest, not heroic.
+  trace).
+- Server-component fetches; no client-side state library.
+- Read API at `GET /api/requests` and `GET /api/requests/{id}` mounted
+  on the same FastAPI app as the proxy, so a single uvicorn serves
+  both. Next.js `rewrites` proxy `/api/*` to it in dev.
+
+### Persistence and observability
+
+- One SQLModel table — `requests` — with `request_hash`, `model`,
+  `latency_ms`, `status`, `created_at`, plus `detector_results` and
+  `policy_decision` JSON columns. Request and response *bodies* are
+  not logged in v0.1; persisting them behind a config flag is on the
+  roadmap.
+- Alembic migrations for the schema; `make migrate` applies them.
+- Structured JSON logs via structlog. Every line carries `event=...`
+  and `request_id` (the request hash prefix) where applicable.
+- One OTel span tree per request — `proxy.chat.completions` with
+  `detectors.scan` and (on allow/redact) `provider.openai.forward`
+  children. OTLP exporter ships them to the Jaeger instance brought
+  up by `make dev`.
+
+### Packaging, CI, and docs
+
+- Multi-stage `packages/core/Dockerfile` that strips `torch` from the
+  runtime stage — ONNX Runtime is enough for inference (see
+  [ADR-0004](./docs/adrs/0004-onnx-runtime-over-torch.md)). Target
+  image size under 1 GB.
+- `docker compose --profile full up --build` runs the full stack
+  (postgres + jaeger + core + dashboard) from a clean clone.
+- GitHub Actions: `ci.yml` (lint, typecheck, test with the 80 % coverage
+  gate, dashboard build, container build) and `bench.yml` (n=100 smoke
+  on PR — catches structural regressions in the harness).
+- Four ADRs in `docs/adrs/` covering the language choice, the redaction
+  scheme, the structured-concurrency runner, and the ONNX-over-torch
+  call. `docs/ARCHITECTURE.md` has Mermaid sequence diagrams for the
+  happy / blocked / redacted paths.
+- `examples/openai_sdk_dropin.py` plus curl examples for each path.
+- `CONTRIBUTING.md` and issue templates.
+- Apache-2.0 `LICENSE`.
+
+### Known limitations
+
+- Streaming responses are not scanned (SSE pass-through only).
+- Authentication is not enforced — v0.1 expects to live behind a
+  trusted edge.
+- Circuit breaker state is per-process by design; a multi-instance
+  deployment has per-pod breakers. This is correct for the failure
+  mode it targets, not a gap in disguise.
+- The ML detector's performance is sensitive to training-distribution
+  alignment: 100 % on `Lakera/gandalf_ignore_instructions`, ~46 % on
+  `deepset/prompt-injections`. Both numbers are committed.
