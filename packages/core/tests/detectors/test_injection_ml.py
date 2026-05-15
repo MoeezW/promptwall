@@ -10,6 +10,11 @@ import pytest
 from promptwall.detectors.base import ScanContext
 from promptwall.detectors.injection_ml import InjectionMLDetector
 
+# These tests download a ~700 MB ONNX model and assert a p99 latency budget
+# that's tight on hosted CI runners. Mark them so CI can deselect via
+# `-m "not ml"`; `make test` locally still runs them.
+pytestmark = pytest.mark.ml
+
 _CTX = ScanContext(request_id="test", direction="input")
 
 _POSITIVE = (
