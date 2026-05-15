@@ -65,7 +65,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: pnpm install --frozen-lockfile || pnpm install
+      # pnpm 11 refuses to run postinstall scripts in non-interactive
+      # environments unless explicitly approved; the `--config` flag below
+      # is pnpm's documented escape hatch for CI. sharp and unrs-resolver
+      # are the only build-script packages in the tree (both reputable).
+      - run: |
+          pnpm install --frozen-lockfile --config.dangerously-allow-all-builds=true \
+            || pnpm install --config.dangerously-allow-all-builds=true
       - run: pnpm build
 
   container-build:
